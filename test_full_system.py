@@ -162,13 +162,9 @@ def main():
     _ = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
     conn.close()
 
-    try:
-        checkpointer = SqliteSaver.from_conn_string(DB_PATH)
-    except Exception:
-        from langgraph.checkpoint.memory import MemorySaver
-
-        checkpointer = MemorySaver()
-        print("Using in-memory checkpointing (LangGraph SQLite unavailable)")
+    checkpointer_conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    checkpointer_conn.execute("PRAGMA journal_mode=WAL")
+    checkpointer = SqliteSaver(checkpointer_conn)
 
     conn = sqlite3.connect(DB_PATH)
     tables_after = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
