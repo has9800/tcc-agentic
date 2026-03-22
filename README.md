@@ -162,6 +162,45 @@ The agent knew all of that from the chain. You were working again in 30 seconds.
 
 ---
 
+## What's coming
+
+TCC is actively being built. Here's what's on the roadmap:
+
+**Speculative planning**
+The agent will be able to project future events onto the chain — "I think we'll need to book CNC time, then run the assembly, then do final testing." These show up as *speculative* nodes. As reality unfolds, they get confirmed or pruned. The agent maintains a live hypothesis about what comes next, not just a record of what happened.
+
+**Agentic commerce — shopping, ordering, payments**
+Tell TCC to order pizza, buy parts, or book a service. It will do it through pre-approved spending limits — a virtual card with hard caps you control, connected via Marqeta or Visa's agent payment infrastructure. Your real bank account is never exposed. Every transaction is recorded in the chain. You top up a credit balance, set spending rules once, and the agent operates within them. Always with confirmation for anything above your threshold.
+
+**Voice interface**
+Talk to TCC hands-free. A local wake word detector listens passively, Whisper converts your speech to text, and the agent responds through your speakers. Designed for situations where your hands are busy — working in a lab, under a car, cooking.
+
+**Email, web, and app integration**
+Through MCP (the open standard for connecting AI to external tools), TCC will be able to read and send email, browse the web, search for information, and interact with apps — all from natural conversation. Ask it to find the torque specs for a part, draft a reply to a supplier, or check if an order shipped.
+
+**Visual workspace awareness**
+Point a camera at your workspace. At the start of each session, TCC's vision layer observes what's on the bench, what tools are out, what's partially assembled — and adds that to the chain context automatically. The agent orients itself from both memory and sight.
+
+**ROS2 bridge for robotics and home automation**
+Any ROS2-compatible hardware — robot arms, smart home devices, lab equipment — becomes a tool TCC can call. Same interface as everything else: the agent decides what to do, TCC calls the tool, the result gets recorded in the chain.
+
+**Semantic search over history**
+Ask questions about your own history: "why did we decide to switch materials?", "what were we doing the week before the deadline?", "find all decisions related to the propulsion system." TCC searches the causal graph and returns relevant nodes — not just keyword matches, but structurally related events.
+
+**Hardware options (future)**
+For users who want a dedicated always-on device running locally with no laptop required, TCC will support deployment on:
+
+| Device | RAM | Best model | Speed | Price |
+|---|---|---|---|---|
+| Any laptop/desktop | 8GB+ | Qwen3.5-4B | 10–25 tok/s | — |
+| Raspberry Pi 5 | 8GB | Qwen3.5-2B | 3–5 tok/s | ~$80 |
+| Jetson Orin Nano Super | 8GB unified | Qwen3.5-4B | 15–25 tok/s | ~$250 |
+| Jetson AGX Orin | 64GB | Qwen3.5-9B | 20–40 tok/s | ~$1000 |
+
+The Jetson Orin Nano Super is the recommended hardware target — it runs Qwen3.5-4B (text + vision) at conversational speed, supports ROS2 natively, draws only 15W, and is the size of a credit card. A full hardware deployment guide with VM sizing, disk partitioning, and GPU configuration will be published when TCC reaches that stage.
+
+---
+
 ## Getting started
 
 ```bash
