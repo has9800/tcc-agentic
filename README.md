@@ -4,15 +4,15 @@
 
 **Your AI agent finally remembers.**
 
-Most AI agents forget everything the moment you close the window. Raven fixes that. It gives any AI agent a persistent, structured memory that survives across sessions, days, and weeks — so the next time you sit down to work, your agent already knows what you were doing, what decisions were made, and what comes next.
+Most AI agents forget everything the moment you close the window. Raven fixes that. It gives any AI agent a persistent, structured memory that survives across sessions, days, and weeks, so the next time you sit down to work, your agent already knows what you were doing, what decisions were made, and what comes next.
 
 ---
 
 ## The problem with AI memory today
 
-Every AI assistant you've used has the same fundamental flaw: it only knows what's in the current conversation. Close the chat, start a new one, and it's a blank slate. You spend the first five minutes re-explaining your project, your context, your preferences.
+Every AI assistant you've used has the same fundamental flaw, it only knows what's in the current conversation. Now if you close the chat or start a new one it's a blank slate. You spend the first five minutes explaining your project, your context, your preferences.
 
-Some tools try to fix this with notes files or conversation logs. But these are flat — just a pile of text with no understanding of cause and effect, no sense of what led to what, no way to go back and undo a decision.
+Some tools try to fix this with notes files or conversation logs. But these are flat, just a pile of text with no understanding of cause and effect (causal relationships), no sense of what led to what, no way to go back and undo a decision.
 
 Raven takes a different approach.
 
@@ -20,7 +20,7 @@ Raven takes a different approach.
 
 ## How Raven works
 
-Raven records everything that happens as a **chain of events**, where each event knows what caused it.
+Raven records everything that happens as a **chain of events**, where each event knows what caused it, and you can walk the chain backwards to see what went wrong. You can also rollback, and in a future release, we're going to add RGATs to build causal relationships across nodes that could derive richer explanations between relationships.
 
 Think of it like a git commit history — but for everything your agent does and everything that happens in your project. Every action, every decision, every tool call, every note becomes a node in the chain. Each node points back to what came before it.
 
@@ -245,9 +245,10 @@ Active development:
 - Speculative node planning (DAG V2)
 - Voice interface (Whisper + Piper TTS + wake word)
 - MCP integrations (email, web, payments, smart home)
-- VLM session observation (Qwen3.5-4B vision at session start)
-- Semantic search over chain history (RGAT)
+- Visual observation (Qwen3.5-4B vision at session start)
+- Richer relationships and causal reasoning across the chain (RGAT)
 - Encryption at rest (SQLCipher + OS keychain)
+- Robotics control (ROS2 MCP + YOLO vision)
 
 ---
 
