@@ -108,10 +108,10 @@ The agent reads this and immediately knows where the project is. No prompting, n
 Your agent remembers what you were working on, what decisions were made, and what comes next — even weeks later.
 
 **Causal chain structure**
-Every event knows what caused it. You can trace any decision back to its origin and understand exactly how the project got to where it is.
+Every event knows what caused it. You can trace any decision back to its origin and understand exactly how the project got to where it is. The agent walks backwards up the chain, each subsequent chain is a direct continuation of the previous chain and your work. RGAT helps build causal relationships for smart causal structure as well.
 
 **SQLite-Vec**
-Using embeddings with SQL tables to avoid using a separate database in the future. This keeps the project lean, and footprint minimal. Once we introduce semantic search, the impact is significant. If every node has an embedding, the chain stops being just a log and becomes a searchable knowledge base about everything you've ever worked on. The longer you use Raven, the smarter it gets at finding relevant context.
+Using embeddings with SQL tables to avoid using a separate database. This keeps the project lean, and footprint minimal. With semantic search, the impact is significant. If every node has an embedding, the chain stops being just a log and becomes a searchable knowledge base about everything you've ever worked on. The longer you use Raven, the smarter it gets at finding relevant context.
 
 **Parallel work with automatic merging**
 Run multiple tasks at the same time. Raven tracks both, and automatically merges them back into a single coherent timeline when they're done.
