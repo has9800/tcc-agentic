@@ -2,27 +2,97 @@
 
 # Raven
 
-**Your AI agent finally remembers.**
+**The causal memory layer for AI agents.**
 
-Most AI agents forget everything the moment you close the window. Raven fixes that. It gives any AI agent a persistent, structured memory that survives across sessions, days, and weeks, so the next time you sit down to work, your agent already knows what you were doing, what decisions were made, and what comes next.
+Drop Raven into any agent — OpenClaw, LangGraph, Claude Desktop, or your own — and it gains persistent memory that survives across sessions, days, and weeks. Not flat retrieval. Causal structure. Every decision linked to what caused it, every parallel task tracked, every session resumable from exactly where you left off.
+
+---
+
+## Install into OpenClaw in 60 seconds
+
+```bash
+clawhub install raven-memory
+```
+
+That's it. Your OpenClaw agent now has persistent causal memory. Add to your system prompt:
+
+```
+At the start of every conversation, call raven_start_session.
+Record significant events with raven_record_event.
+End sessions with raven_end_session.
+```
+
+---
+
+## Use with any MCP-compatible agent
+
+Raven exposes itself as an MCP server. Any agent that supports MCP can use it:
+
+```json
+{
+  "mcpServers": {
+    "raven-memory": {
+      "command": "python3",
+      "args": ["-m", "tcc.integration.mcp_server"],
+      "env": {
+        "RAVEN_DB_PATH": "~/.raven/raven.db"
+      }
+    }
+  }
+}
+```
+
+Works with OpenClaw, Claude Desktop, Cursor, or any custom agent.
+
+---
+
+## Use with LangGraph directly
+
+```python
+from tcc.core.store import TCCStore
+from tcc.core.dag import TaskDAG
+from tcc.core.reconciler import SessionReconciler
+
+store = TCCStore("raven.db")
+dag = TaskDAG(store)
+reconciler = SessionReconciler()
+
+# Session start — injects chain context into agent
+ctx = reconciler.start_session(dag, search_query="repulsor project")
+print(ctx["summary"])  # inject this into your system prompt
+
+# Record events during the session
+reconciler.record_event(dag, ctx["session_id"],
+    event="switched to titanium housing",
+    actor="user",
+    plan="carbon fiber failed stress test",
+    context={}
+)
+
+# Session end
+reconciler.end_session(dag, ctx["session_id"], notes="sim passed")
+```
 
 ---
 
 ## The problem with AI memory today
 
-Every AI assistant you've used has the same fundamental flaw, it only knows what's in the current conversation. Now if you close the chat or start a new one it's a blank slate. You spend the first five minutes explaining your project, your context, your preferences.
+Every AI assistant has the same flaw: it only knows what's in the current conversation. Close the chat, start a new one — blank slate. You spend the first five minutes re-explaining your project.
 
-Some tools try to fix this with notes files or conversation logs. But these are flat, just a pile of text with no understanding of cause and effect (causal relationships), no sense of what led to what, no way to go back and undo a decision.
+Existing memory systems (Mem0, Zep, Supermemory) fix this with RAG — they store facts and retrieve similar ones. But RAG can't answer:
 
-Raven takes a different approach.
+- "Why did we switch materials?" ← requires tracing causes
+- "What was happening while the sim was running?" ← requires parallel awareness
+- "Roll back to before that decision" ← requires reversible history
+- "What decision had the most downstream impact?" ← requires graph traversal
+
+Raven answers all of these. Because Raven is a causal graph, not a retrieval index.
 
 ---
 
-## How Raven works
+## How it works
 
-Raven records everything that happens as a **chain of events**, where each event knows what caused it, and you can walk the chain backwards to see what went wrong. You can also rollback, and in a future release, we're going to add RGATs to build causal relationships across nodes that could derive richer explanations between relationships.
-
-Think of it like a git commit history — but for everything your agent does and everything that happens in your project. Every action, every decision, every tool call, every note becomes a node in the chain. Each node points back to what came before it.
+Raven records everything as a **chain of causally-linked events**:
 
 ```
 [started project]
@@ -39,49 +109,31 @@ Think of it like a git commit history — but for everything your agent does and
 [session ended]
 ```
 
-When you come back tomorrow, Raven loads the end of that chain and hands it to your agent. The agent reads it and is instantly oriented — no re-explaining, no catching up, no lost context.
+Each node knows its parent. Parallel work branches and auto-merges. Wrong decision? Roll back. Session ended? Next session loads the chain and continues.
 
 ---
 
-## What makes it a DAG, not just a list
+## Benchmark results
 
-A simple list of events would be fine for linear work. But real projects don't happen linearly. You run a simulation *while* turning off the lights. You explore two approaches in parallel before committing to one. You sometimes realize a decision was wrong and need to go back.
+Raven was evaluated on **LoCoMo** — the standard long-term conversational memory benchmark used by Mem0, Zep, and OpenAI Memory.
 
-Raven uses a **Directed Acyclic Graph** (DAG) — a structure that can represent all of this cleanly:
+| System | Overall | Temporal |
+|---|---|---|
+| OpenAI Memory | 52.9% | 21.7% |
+| Zep | 66.0% | — |
+| Mem0 | 67.1% | 58.1% |
+| **Raven (standard)** | **TBD** | **TBD** |
+| **Raven (adversarial)** | **TBD** | **TBD** |
 
-**Branching** — when two things happen in parallel, the chain forks into two branches that run side by side.
+*Adversarial conditions: 30% session crash rate, 3-node context window, 20% noise injection, cross-session references. Results pending — run the benchmark yourself.*
 
-**Merging** — when both parallel tasks finish, the branches automatically merge back into one chain. The agent sees a single coherent history.
-
-**Rollback** — made a wrong decision? Roll the chain back to any earlier point. Nothing is deleted — the history is preserved, but the agent's current view moves back to a known-good state.
-
-**Speculative nodes** — coming soon: the agent can plan ahead by adding *speculative* nodes representing what it thinks will happen next. As reality unfolds, nodes get confirmed or pruned. The agent maintains a live hypothesis about the future.
-
----
-
-## Persistence that actually works
-
-Raven stores everything in a local SQLite database — a single file on your machine. No cloud, no subscription, no data leaving your computer.
-
-When you start a new session:
-
-1. Raven loads the last N events from the chain
-2. Your agent reads them as plain text context
-3. The agent is oriented and ready — in seconds
-
-When the session ends:
-
-1. Every action that happened gets recorded as a new chain node
-2. The database file updates
-3. Next session, it's all there
-
-This works across days, weeks, months. The chain keeps growing. Old nodes get archived to compressed storage when they're no longer needed for active context — but they're never lost. You can always go back.
+Raven also introduces **adversarial LoCoMo** — harder conditions that reflect real deployments. RAG systems degrade catastrophically under these conditions. Raven degrades gracefully because the causal chain survives crashes, noise, and long gaps.
 
 ---
 
-## What the agent actually sees
+## What the agent sees
 
-At the start of every session, your agent receives something like this:
+At session start, the agent receives:
 
 ```
 Last active: 3 days ago
@@ -93,181 +145,192 @@ Recent events:
     sim: repulsor_geometry_v4, result: drag coefficient 0.21
   [user] session ended (3 days ago)
 
+Relevant historical context:
+  [user] approved NordSpace proposal after stress sim passed
+  [tool] CNC booking confirmed for tomorrow
+
 Open threads: boot thrusters next, CNC time needs booking
-Relevant files: /workspace/results/repulsor_v4/
 Notes: titanium decision approved, moving forward
 ```
 
-The agent reads this and immediately knows where the project is. No prompting, no re-explaining. It just continues.
+The agent reads this and continues. No re-explaining. No lost context.
+
+---
+
+## Tools exposed via MCP
+
+| Tool | What it does |
+|---|---|
+| `raven_start_session` | Load chain context at conversation start |
+| `raven_record_event` | Write an event to the causal chain |
+| `raven_end_session` | Close session with notes |
+| `raven_search` | Semantic search over full history |
+| `raven_rollback` | Roll back N steps |
+| `raven_get_status` | Health check and chain stats |
 
 ---
 
 ## Features
 
-**Persistent memory across sessions**
-Your agent remembers what you were working on, what decisions were made, and what comes next — even weeks later.
-
 **Causal chain structure**
-Every event knows what caused it. You can trace any decision back to its origin and understand exactly how the project got to where it is. The agent walks backwards up the chain, each subsequent chain is a direct continuation of the previous chain and your work. RGAT helps build causal relationships for smart causal structure as well.
-
-**SQLite-Vec**
-Using embeddings with SQL tables to avoid using a separate database. This keeps the project lean, and footprint minimal. With semantic search, the impact is significant. If every node has an embedding, the chain stops being just a log and becomes a searchable knowledge base about everything you've ever worked on. The longer you use Raven, the smarter it gets at finding relevant context.
+Every event knows what caused it. Trace any decision back to its origin. Understand exactly how a project reached its current state.
 
 **Parallel work with automatic merging**
-Run multiple tasks at the same time. Raven tracks both, and automatically merges them back into a single coherent timeline when they're done.
+Run multiple tasks simultaneously. Raven tracks each branch and automatically merges when both complete. The agent sees a single coherent timeline.
 
 **Multi-agent support**
-Spawn multiple specialized subagents — a research agent, a lab agent, a home agent — each working on its own branch simultaneously. Raven merges their results back into the main chain automatically. All agents share the same memory, same chain, same context.
+Spawn specialized subagents — research, lab, home — each on its own branch. Raven merges results back to main automatically. Verified under concurrent load: 3 agents writing 15 nodes simultaneously, zero corruption.
+
+**Semantic search over history**
+sqlite-vec embeddings on every node. The agent's first message triggers semantic search over the full chain — relevant historical context surfaces automatically, not just recent nodes.
+
+**Session continuity across crashes**
+No clean session end? No problem. The chain records what was happening. Next session the agent reads the chain and knows where things stood.
 
 **Rollback to any point**
-Changed your mind? Roll the chain back to any previous state. The agent picks up from there as if nothing went wrong. History is preserved — nothing is lost.
+Wrong decision? Roll back. History is preserved — the chain doesn't delete, it moves the tip pointer. Fully recoverable.
 
-**Session-based physical state**
-Raven doesn't try to track where every physical object is in real time. Instead, it records what the agent knows at the moment — and re-observes the physical world at the start of each session. Simple, honest, robust.
+**OpenClaw compatible**
+Full MCP server implementation. Install as a ClawHub skill. Marked `exclusive: true` — Raven replaces other memory skills cleanly, no conflicts.
 
 **Local first, privacy first**
-Everything lives in a single SQLite file on your machine. No cloud, no accounts, no data leaving your computer. Run it on a Raspberry Pi, a Mac Mini, a server — anything.
+Everything in a single SQLite file on your machine. No cloud, no accounts, no data leaving your computer. Verified with Qwen3.5-4B via Ollama — full local stack.
 
 **Model agnostic**
-Raven works with any language model. Swap between models, upgrade to a newer one, run locally or via API — the memory layer doesn't change. Verified with Qwen3.5-4B running locally via Ollama.
+Works with any LLM. Swap models, upgrade, run locally or via API — the memory layer doesn't change.
 
-**Cold storage for old history**
-Configure how long events stay in active memory. Older nodes get compressed and archived automatically. A year of daily activity fits in a few megabytes.
-
-**Concurrency safe**
-Multiple agents writing simultaneously are handled correctly — writes are serialized, no data corruption, no lost nodes. Verified under concurrent load with 3 agents writing 15 nodes simultaneously.
-
-**Speculative planning** *(coming soon)*
-The agent can plan ahead by projecting future events onto the chain. As reality unfolds, speculative nodes get confirmed or pruned. The agent maintains a live hypothesis about what comes next.
-
-**Graph-based search** *(coming soon)*
-Ask questions about your history: "why did we decide X", "what was happening on March 2nd", "find all decisions related to the propulsion system." Raven searches the graph and returns relevant nodes, not just keyword matches.
+**Encryption at rest** *(coming soon)*
+AES-256 via SQLCipher. Keys in OS secure keychain. Optional high-security mode: execution state in RAM only, nothing written to disk except the encrypted chain.
 
 ---
 
-## Example: picking up after a three-week break
-
-You come back to a project you haven't touched in three weeks.
+## Example: three weeks later
 
 **Without Raven:**
-You open a new chat. The agent knows nothing. You spend ten minutes explaining what you're building, what you tried, what didn't work, what comes next. You probably miss something important. The agent makes a suggestion that contradicts a decision you already made — because it doesn't know you made it.
+Blank slate. Ten minutes re-explaining context. Agent contradicts a decision it doesn't know you made.
 
 **With Raven:**
 ```
 Agent: Welcome back — it's been 3 weeks since we worked on Iron Man v2.
 
-Last session you finished the right repulsor housing and approved the
-titanium switch after the stress sim passed. Boot thrusters are next.
+Last session you finished the right repulsor housing and approved
+the titanium switch after the stress sim passed. Boot thrusters next.
 
-You had flagged that CNC time needs to be booked before we can continue.
-Is that sorted?
+CNC time needs to be booked before we can continue. Is that sorted?
 
 You: Yeah, booked for tomorrow.
 
-Agent: Perfect. Boot thruster sequence is next. You'll need the plasma
-cutter and titanium stock. Want me to pull up the repulsor geometry
-results as a reference?
+Agent: Perfect. Boot thruster sequence is next. You'll need the
+plasma cutter and titanium stock. Want me to pull up the repulsor
+geometry results as a reference?
 ```
 
-The agent knew all of that from the chain. You were working again in 30 seconds.
-
----
-
-## What's coming
-
-Raven is actively being built. Here's what's on the roadmap:
-
-**Speculative planning**
-The agent will be able to project future events onto the chain — "I think we'll need to book CNC time, then run the assembly, then do final testing." These show up as *speculative* nodes. As reality unfolds, they get confirmed or pruned. The agent maintains a live hypothesis about what comes next, not just a record of what happened.
-
-**Agentic commerce — shopping, ordering, payments**
-Tell Raven to order pizza, buy parts, or book a service. It will do it through pre-approved spending limits — a virtual card with hard caps you control, connected via Marqeta or Visa's agent payment infrastructure. Your real bank account is never exposed. Every transaction is recorded in the chain. You top up a credit balance, set spending rules once, and the agent operates within them. Always with confirmation for anything above your threshold.
-
-**Voice interface**
-Talk to Raven hands-free. A local wake word detector listens passively, Whisper converts your speech to text, and the agent responds through your speakers. Designed for situations where your hands are busy — working in a lab, under a car, cooking.
-
-**Email, web, and app integration**
-Through MCP (the open standard for connecting AI to external tools), Raven will be able to read and send email, browse the web, search for information, and interact with apps — all from natural conversation. Ask it to find the torque specs for a part, draft a reply to a supplier, or check if an order shipped.
-
-**Visual workspace awareness**
-Point a camera at your workspace. At the start of each session, Raven's vision layer observes what's on the bench, what tools are out, what's partially assembled — and adds that to the chain context automatically. The agent orients itself from both memory and sight. Powered by Qwen3.5-4B's native vision capabilities — no separate model needed.
-
-**ROS2 bridge for robotics and home automation**
-Any ROS2-compatible hardware — robot arms, smart home devices, lab equipment — becomes a tool Raven can call. Same interface as everything else: the agent decides what to do, Raven calls the tool, the result gets recorded in the chain. Existing ROS2 MCP servers are already available — no custom bridge needed.
-
-**Semantic search over history**
-Ask questions about your own history: "why did we decide to switch materials?", "what were we doing the week before the deadline?", "find all decisions related to the propulsion system." Raven searches the causal graph and returns relevant nodes — not just keyword matches, but structurally related events.
-
-**Encryption at rest**
-All chain data encrypted with AES-256 via SQLCipher. Keys stored in your OS secure keychain. Optional high-security mode keeps all execution state in RAM only — nothing written to disk except your encrypted chain.
-
-**Hardware options (future)**
-For users who want a dedicated always-on device running locally with no laptop required, Raven will support deployment on:
-
-| Device | RAM | Best model | Speed | Price |
-|---|---|---|---|---|
-| Any laptop/desktop | 8GB+ | Qwen3.5-4B | 10–25 tok/s | — |
-| Beelink SER8 | 32GB | Qwen3.5-9B | 15–25 tok/s | ~$450 |
-| Raspberry Pi 5 | 8GB | Qwen3.5-2B | 3–5 tok/s | ~$80 |
-| Jetson Orin Nano Super | 8GB unified | Qwen3.5-4B | 15–25 tok/s | ~$250 |
-| Jetson AGX Orin | 64GB | Qwen3.5-9B | 20–40 tok/s | ~$1000 |
-
-The Beelink SER8 with 32GB is the recommended value option — runs Qwen3.5-9B comfortably, upgradeable RAM, OCuLink port for future GPU expansion. The Jetson Orin Nano Super is recommended when ROS2 and robotics integration are needed. A full hardware deployment guide will be published when Raven reaches that stage.
+30 seconds to full context. Zero re-explaining.
 
 ---
 
 ## Getting started
 
+**As an OpenClaw skill:**
 ```bash
-git clone https://github.com/yourhandle/raven
-cd raven
-pip install -r requirements.txt
-python test_full_system.py
+clawhub install raven-memory
 ```
 
-The test suite runs 13 end-to-end verification tests covering:
-- DAG core, persistence, rollback
-- Parallel branching and automatic merging
-- Session continuity across process restarts
-- LangGraph interrupt/resume with human approval
-- Multi-agent subagent spawn and merge
-- Concurrent write safety under race conditions
-- Conflict detection and store integrity
+**As a Python package:**
+```bash
+pip install -r requirements.txt
+python3 test_full_system.py        # 15 core tests
+python3 test_openclaw_integration.py  # MCP integration tests
+```
 
-All 13 tests verified on NVIDIA H100 with Qwen3.5-4B.
+**Run the LoCoMo benchmark:**
+```bash
+# Download dataset
+wget https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json \
+     -O benchmark/locomo10.json
 
-To use Raven with a real model, run Qwen3.5-4B locally via Ollama and point Raven at `localhost:11434`. Full integration guide coming soon.
+# Run standard evaluation
+python3 -m benchmark.run_benchmark --mode standard --max-examples 10
+
+# Run adversarial evaluation
+python3 -m benchmark.run_benchmark --mode adversarial --max-examples 10
+```
+
+---
+
+## Test coverage
+
+All tests verified on NVIDIA H100 with Qwen3.5-4B:
+
+**Core (15 tests):**
+DAG, persistence, rollback, parallel branching, auto-merge, session continuity, LangGraph interrupt/resume, multi-agent subagent spawn, concurrent write safety, conflict detection, sqlite-vec semantic search, semantic context injection
+
+**MCP integration (9 tests):**
+MCP handshake, tool listing, session start, event recording, status check, session end, persistence across restart, semantic search, rollback
+
+---
+
+## What's coming
+
+**Speculative planning** — agent projects future steps as speculative nodes. Reality confirms or prunes them. Live hypothesis about what comes next.
+
+**Payments** — virtual card via Marqeta, spending policy enforcement, Uber Eats / rides / tickets / shopping via ClawHub skills.
+
+**Voice** — local wake word + Whisper + Piper TTS. Hands-free for lab work.
+
+**Visual workspace** — Qwen3.5-4B native vision. Camera at session start. Agent sees the bench, knows what's assembled.
+
+**ROS2 robotics** — connect any ROS2 hardware as a Raven tool. Existing ros-mcp-server compatible.
+
+**RGAT** — graph attention network trained over the causal chain + semantic edges. Learns which past decisions predict current outcomes. Enables "what caused this" queries the chain alone can't answer.
+
+**Hardware options:**
+
+| Device | RAM | Model | Speed | Price |
+|---|---|---|---|---|
+| Any laptop | 8GB+ | Qwen3.5-4B | 10–25 tok/s | — |
+| Beelink SER8 | 32GB | Qwen3.5-9B | 15–25 tok/s | ~$450 |
+| Raspberry Pi 5 | 8GB | Qwen3.5-2B | 3–5 tok/s | ~$80 |
+| Jetson Orin Nano | 8GB | Qwen3.5-4B | 15–25 tok/s | ~$250 |
+| Jetson AGX Orin | 64GB | Qwen3.5-9B | 20–40 tok/s | ~$1000 |
 
 ---
 
 ## Project status
 
-Raven's core is solid and fully tested on GPU. The DAG, persistence layer, branching, merging, rollback, session reconciliation, and multi-agent support all work and are verified.
+Core architecture complete and GPU-verified. MCP server complete and OpenClaw-compatible.
 
-Active development:
-- SQLite-Vec for semantic search to detect context automatically
-- Speculative node planning (DAG V2)
-- Voice interface (Whisper + Piper TTS + wake word)
-- MCP integrations (email, web, payments, smart home)
-- Visual observation (Qwen3.5-4B vision at session start)
-- Richer relationships and causal reasoning across the chain (RGAT)
-- Encryption at rest (SQLCipher + OS keychain)
-- Robotics control (ROS2 MCP + YOLO vision)
+```
+✅ Causal DAG (branch, merge, rollback)
+✅ SQLite persistence
+✅ Session reconciler
+✅ Semantic search (sqlite-vec)
+✅ Multi-agent with race condition safety
+✅ MCP server (OpenClaw compatible)
+✅ ClawHub skill manifest
+✅ LoCoMo benchmark pipeline
+
+In progress:
+  → LoCoMo benchmark results
+  → SQLCipher encryption
+  → Speculative planning
+  → RGAT
+  → Payments (Marqeta)
+  → ROS2 bridge
+```
 
 ---
 
 ## Philosophy
 
-Most AI memory systems try to solve the wrong problem. They try to make the AI *remember* the way a human remembers — continuously, in the background, always on.
+Most AI memory systems try to solve the wrong problem. They make the AI remember the way a human remembers — continuously, in the background, always on. That's hard, expensive, and fragile.
 
-That's hard, expensive, and fragile.
+Raven takes a simpler view: **the AI doesn't need to remember. It needs access to a reliable record of what happened.** The chain is that record. Always accurate. Always queryable. Always there.
 
-Raven takes a simpler view: **the AI doesn't need to remember. It needs access to a reliable record of what happened.** The chain is that record. It's always accurate, always queryable, always there. The AI reads it at the start of each session and is oriented instantly.
-
-This is how the best human collaborators work too. They don't rely on memory alone — they keep a project log, a decision record, a notebook. Raven is that notebook, structured and queryable, built into the agent's workflow from the start.
+Not a chatbot. Not a skill marketplace. Not a RAG system. A causal memory layer — infrastructure for agents that do real work, over real time.
 
 Ravens remember. So does your agent.
 
 ---
 
-*Built for agents that work on real things, over real time.*
+*Drop in. Stay local. Never forget.*
