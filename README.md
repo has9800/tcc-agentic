@@ -1,3 +1,6 @@
+![Raven memory logo](./raven.png)
+
+
 # Raven
 
 **Persistent causal memory for AI agents.**
@@ -46,15 +49,15 @@ At session start, your agent receives a summary of recent events plus semantical
 ┌─────────────────────────────────────────┐
 │              OpenClaw Agent             │
 │                                         │
-│  raven_start_session  ──────────────┐  │
-│  raven_record_event   ──────────┐   │  │
-│  raven_end_session    ───────┐  │   │  │
-│  raven_search         ────┐  │  │   │  │
-└───────────────────────────┼──┼──┼───┼──┘
+│  raven_start_session  ──────────────┐   │
+│  raven_record_event   ──────────┐   │   │
+│  raven_end_session    ───────┐  │   │   │
+│  raven_search         ────┐  │  │   │   │
+└───────────────────────────┼──┼──┼───┼──-┘
                             │  │  │   │
                     MCP / JSON-RPC 2.0
                             │  │  │   │
-┌───────────────────────────┼──┼──┼───┼──┐
+┌───────────────────────────┼──┼──┼───┼──-┐
 │           Raven MCP Server              │
 ├─────────────────────────────────────────┤
 │  TaskDAG   │  SessionReconciler         │
