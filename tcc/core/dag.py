@@ -277,6 +277,31 @@ class TaskDAG:
 
         return merge_node
 
+    def is_ancestor_of_tip(self, candidate_hash: str) -> bool:
+        """
+        Return True if candidate_hash is an ancestor of (or equal to)
+        the current tip. Walks parent edges via _index — no store queries.
+        """
+        if not self._tip_hash:
+            return False
+        if candidate_hash == self._tip_hash:
+            return True
+        visited = set()
+        stack = [self._tip_hash]
+        while stack:
+            current = stack.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+            if current == candidate_hash:
+                return True
+            node = self._index.get(current)
+            if node:
+                for ph in node.parent_hashes:
+                    if ph not in visited:
+                        stack.append(ph)
+        return False
+
     def rollback(self, n: int = 1) -> TCCNode:
         """
         Roll the tip back n steps through parent_hashes[0].
