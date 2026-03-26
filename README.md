@@ -5,7 +5,7 @@
 
 **Persistent causal memory for AI agents.**
 
-Raven gives your AI agent a memory that survives across sessions, days, and months. Every significant event — tool calls, decisions, user preferences, session checkpoints — is recorded as a node in a causal chain. Your agent always knows where things stand and why.
+Raven gives your AI agent a memory that survives across sessions, days, and months. Every significant event: tool calls, decisions, user preferences, session checkpoints etc are recorded as a node in a causal chain. Your agent always knows where things stand and why.
 
 ---
 
@@ -15,7 +15,7 @@ Every AI agent session starts from zero. Close the chat and your agent forgets e
 
 Existing memory systems help, but only partially:
 
-- **OpenClaw's built-in memory** writes plain Markdown files. Works for simple preferences, breaks down when you need causal reasoning — *why* did we switch materials, *what* caused that deployment to fail.
+- **OpenClaw's built-in memory** writes plain Markdown files. Works for simple preferences, breaks down when you need causal reasoning, *why* did we switch materials, *what* caused that deployment to fail.
 - **Mem0 / Zep** extract facts from conversations and store them in vector databases. Better retrieval, but they store *what* happened, not *why*. Ask about a decision chain and you get fragments.
 
 Raven stores the full causal picture. Every node knows what came before it and what caused it.
@@ -34,10 +34,10 @@ Raven records three types of nodes:
 
 Nodes are stored in a local SQLite database with a `node_parents` join table. This enables:
 
-- **Recursive CTE traversal** — walk the causal chain in pure SQL
-- **Semantic search** — find relevant history by meaning via sqlite-vec
-- **Branch and merge** — parallel agent tasks tracked as DAG branches, merged when complete
-- **Rollback** — non-destructive, moves the tip pointer back N hops
+- **Recursive CTE traversal**: walk the causal chain in pure SQL
+- **Semantic search**: find relevant history by meaning via sqlite-vec
+- **Branch and merge**: parallel agent tasks tracked as DAG branches, merged when complete
+- **Rollback**: non-destructive, moves the tip pointer back N hops
 
 At session start, your agent receives a summary of recent events plus semantically relevant history from past sessions. At session end, a milestone node captures what was accomplished and what comes next.
 
@@ -84,14 +84,14 @@ Raven exposes six tools over the MCP protocol:
 | `raven_record_event` | Write an event to the causal chain. Call when something significant happens. |
 | `raven_end_session` | Close the session with notes. Records a milestone node so future sessions know where things stood. |
 | `raven_search` | Semantic search over full history. Finds relevant past context by meaning, not just recency. |
-| `raven_rollback` | Roll back N steps. Non-destructive — history is preserved, tip pointer moves. |
-| `raven_get_status` | Health check — node count, tip event, vec search status. |
+| `raven_rollback` | Roll back N steps. Non-destructive, History is preserved, tip pointer moves. |
+| `raven_get_status` | Health check: node count, tip event, vec search status. |
 
 ---
 
 ## CausalMemBench
 
-Raven scores 100% on CausalMemBench — a benchmark specifically 
+Raven scores 100% on CausalMemBench, a benchmark specifically 
 designed to test causal agent memory across six categories that 
 existing benchmarks do not cover.
 
@@ -173,7 +173,7 @@ clawhub install raven-memory
 
 ## Branching and merging
 
-Raven's DAG tracks parallel work natively. When multiple agents or parallel tool calls run at the same time, each gets its own branch in the causal chain. When they finish, Raven merges them back into a single point on the main chain — capturing exactly what ran in parallel, what completed, and where the main thread resumed.
+Raven's DAG tracks parallel work natively. When multiple agents or parallel tool calls run at the same time, each gets its own branch in the causal chain. When they finish, Raven merges them back into a single point on the main chain, capturing exactly what ran in parallel, what completed, and where the main thread resumed.
 
 **Automatic — no code required**
 
@@ -182,12 +182,12 @@ When multiple agents write to the same database concurrently, Raven detects when
 ```
 main chain ──●──●──●──────────────────────────────●── (merge milestone)
                     └─── branch a3f2: research ───┘
-                    └─── branch d8c1: lab ─────────┘
+                    └─── branch d8c1: lab, ─────────┘
 ```
 
 The merge node records all branch tips as parents. Future sessions can walk back through it and see exactly what happened in parallel, what caused what, and in what order.
 
-**Explicit — for orchestrator workflows**
+**Explicit: for orchestrator workflows**
 
 If you're building a multi-agent orchestrator that spawns subagents and waits for results:
 
@@ -206,15 +206,15 @@ merge = dag.merge([node_a.hash, node_b.hash], session_id=sid)
 
 **Why this matters**
 
-Without branching, concurrent agent writes are just a pile of facts with no record of what ran simultaneously. With Raven's DAG, a future session can answer: what were we doing in parallel, did both complete, and what decision came after? That causal picture is what flat memory systems — Markdown files, vector stores — cannot reconstruct.
+Without branching, concurrent agent writes are just a pile of facts with no record of what ran simultaneously. With Raven's DAG, a future session can answer: what were we doing in parallel, did both complete, and what decision came after? That causal picture is what flat memory systems such as Markdown files, vector stores cant reconstruct.
 
-For most OpenClaw users, auto-merge handles this transparently. You only need the explicit API if you're orchestrating subagents yourself.
+For most OpenClaw users, automerge handles this transparently. You only need the explicit API if you're orchestrating subagents yourself.
 
 ---
 
 ## Multi-agent support
 
-Multiple agents can share a single Raven database. Each agent opens the same `.db` file — WAL mode ensures concurrent writes are safe with zero corruption.
+Multiple agents can share a single Raven database. Each agent opens the same `.db` file. WAL mode ensures concurrent writes are safe with no corruption at all.
 
 ```python
 # Agent A and Agent B share the same memory
@@ -279,23 +279,23 @@ skill.md               — OpenClaw / ClawHub skill manifest
 
 **Node compression**
 
-Long-running chains accumulate intermediate nodes that lose significance over time. Compression will fold consecutive nodes of the same type — or sequences of `action` nodes between two decisions — into a single summary node, preserving the causal edges but reducing storage and context injection size. A chain of 40 tool calls between two `decided` nodes collapses into one compressed `action` node with a rollup summary. The original nodes stay in the store; compression only affects what gets surfaced at session start.
+Long running chains accumulate intermediate nodes that lose significance over time. Compression will fold consecutive nodes of the same type, or sequences of `action` nodes between two decisions into a single summary node, preserving the causal edges but reducing storage and context injection size. A chain of 40 tool calls between two `decided` nodes collapses into one compressed `action` node with a rollup summary. The original nodes stay in the store; compression only affects what gets surfaced at session start.
 
 **Branch milestones**
 
-Currently, milestone nodes are written at session start, session end, and merge. The next step is writing milestone nodes at branch *creation* too — recording what triggered the parallel work, what each branch is responsible for, and what the expected merge condition is. This gives the causal chain a complete picture of parallel execution: why it forked, what each branch did, and when it rejoined.
+Currently, milestone nodes are written at session start, session end, and merge. The next step is writing milestone nodes at branch *creation* too, recording what triggered the parallel work, what each branch is responsible for, and what the expected merge condition is. This gives the causal chain a complete picture of parallel execution: why it forked, what each branch did, and when it rejoined.
 
-**Task recipes**
+**Task Marketplace (Recipes) **
 
-When an agent completes a task successfully — a full branch from fork to merge with all nodes `done` — Raven will be able to extract that execution path as a reusable recipe. The recipe captures the sequence of actions, the decisions made along the way, and the final result. Recipes can be shared across agents or exported so other users can seed their Raven instance with proven task patterns — essentially how an agent solved a problem, step by step, ready to be replayed or adapted.
+When an agent completes a task successfully, a full branch from fork to merge with all nodes `done` Raven will be able to extract that execution path as a reusable recipe. The recipe captures the sequence of actions, the decisions made along the way, and the final result. Recipes can be shared across agents or exported so other users can seed their Raven instance with proven task patterns, essentially how an agent solved a problem, step by step, ready to be replayed or adapted.
 
 **Encryption**
 
-SQLCipher integration for at-rest encryption of the `.db` file. Opt-in via `RAVEN_ENCRYPTION_KEY` environment variable. No schema changes — drop-in replacement for the SQLite connection.
+SQLCipher integration for at-rest encryption of the `.db` file. Opt-in via `RAVEN_ENCRYPTION_KEY` environment variable. No schema changes. Drop-in replacement for the SQLite connection.
 
 **RGAT traversal**
 
-A Relational Graph Attention Network layer over the causal DAG, using two edge types — causal edges from the DAG structure and semantic edges from sqlite-vec similarity. Replaces flat recency-based context injection with learned causal traversal: the model learns which parts of the graph are actually relevant to the current task, not just which are most recent or most similar.
+A Relational Graph Attention Network layer over the causal DAG, using two edge types, causal edges from the DAG structure and semantic edges from sqlite-vec similarity. Replaces flat recency-based context injection with learned causal traversal: the model learns which parts of the graph are actually relevant to the current task, not just which are most recent or most similar.
 
 ---
 
