@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./raven_logo.png" 
+  <img src="https://github.com/has9800/raven-memory/blob/main/raven_logo.png" 
        alt="Raven Memory" width="100%"/>
 </p>
 
